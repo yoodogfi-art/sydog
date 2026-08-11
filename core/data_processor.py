@@ -9,7 +9,10 @@ def process_excel_data(base_dir: str):
     target_dir.mkdir(parents=True, exist_ok=True)
 
     excel_extensions = (".xlsx", ".xlsm", ".xls")
-    files = [f for f in source_dir.iterdir() if f.is_file() and f.suffix.lower() in excel_extensions]
+    files = [
+        f for f in source_dir.iterdir()
+        if f.is_file() and f.suffix.lower() in excel_extensions and not f.name.startswith("~$")
+    ]
 
     if not files:
         print("[알림] 처리할 파일이 없습니다.")
@@ -21,7 +24,6 @@ def process_excel_data(base_dir: str):
             # 1. 파일 안의 모든 시트 읽기
             all_sheets = pd.read_excel(file_path, sheet_name=None, header=[0, 1])
 
-            # 🔥 여기에 강제 출력 추가 (엑셀 파일에 시트가 진짜 여러 개 잡히는지 확인)
             print(f"\n[디버그 파일명]: {file_path.name}")
             print(f"[디버그 감지된 시트 목록]: {list(all_sheets.keys())}")
 
@@ -67,10 +69,16 @@ def process_excel_data(base_dir: str):
                 sheet_df = sheet_df.sort_values('일자', ascending=False)
 
                 safe_sheet_name = str(sheet_name).strip().replace(" ", "_")
-                new_file_name = f"{file_path.stem}_{safe_sheet_name}_processed.csv"
+
+                # 이름은 시트 이름으로 고정!
+                new_file_name = f"{safe_sheet_name}.csv"
 
                 sheet_df.to_csv(target_dir / new_file_name, index=False, encoding="utf-8-sig")
-                processed_files.append(new_file_name)
+
+                # 텔레그램에서 참고할 수 있도록 원본 파일명과 시트(저장파일명)를 함께 기록
+                info_str = f"{new_file_name} (원본: {file_path.name})"
+                processed_files.append(info_str)
+
                 print(f"    [저장 완료] {new_file_name}")
 
         except Exception as e:
