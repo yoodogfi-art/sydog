@@ -48,3 +48,34 @@ BASE_DIR=엑셀_파일들이_위치한_최상위_폴더_절대경로
 
 ### 3. 봇 실행
 python bot_trigger.py
+
+
+---
+### 이거 이어서 대화하고 싶을때
+
+1. 폴더 구조 및 모듈 배치 (텍스트 구조도)
+봇이 전체 시스템의 뼈대(관제탑, 코어, 외부 연동)를 한눈에 파악할 수 있도록 적어줍니다.
+```text
+Plaintext
+project_root/
+├── main.py (또는 bot_trigger.py) -> 텔레그램 관제탑 및 비동기 봇 루프
+├── core/
+│   ├── data_processor.py -> 엑셀 다중 시트 읽고 전처리 -> "시트이름.csv"로 저장
+│   └── excel_updater.py -> 증권사 API/엑셀 백그라운드 자동 갱신 제어
+└── external_uploader/
+    └── telegram_uploader.py -> 텔레그램 메시지 전송 공통 모듈
+```
+
+2. 방금 전까지 완성한 핵심 소스 코드
+지금까지 치열하게 다듬어 온 bot_trigger.py와 core/data_processor.py의 최종 코드를 그대로 붙여넣습니다. (특히 에러 처리나 명령어 세팅이 반영된 최종본이 중요합니다.)
+
+3. 프로젝트의 핵심 규칙 및 제약 사항 (한 줄 요약)
+OS / 환경: 윈도우 환경, win32com을 이용한 엑셀 백그라운드 제어, .env로 경로(BASE_DIR) 및 토큰 관리.
+
+데이터 흐름:
+
+/update나 excel_updater로 엑셀 원본 데이터를 최신화함.
+
+/process나 data_processor로 엑셀을 읽어 시트이름.csv 형태로 databook_processed 폴더에 저장함.
+
+bot_trigger.py가 텔레그램 봇 관제탑 역할을 하며 멍멍!, 깽... 같은 유쾌한 펫 콘셉트 명령어를 수행함.

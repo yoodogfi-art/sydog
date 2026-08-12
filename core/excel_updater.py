@@ -22,7 +22,6 @@ def run_excel_updaters(base_dir):
     # Z 드라이브 등 외부 경로에 있는 필수 파일 추가
     external_files = [
         Path(r"Z:/자산운용/301. 펀드운용업무/전략운용본부/FX 관리/data/KR__KOFR_DATABOOK.xlsm"),
-        Path(r"Z:/자산운용/404. 채권팀회의자료/데일리파일/미국장/미국장_0.2.2/global_dailyreport_databook.xlsm")
     ]
 
     # 로컬 base_dir 파일들과 외부 필수 파일들을 하나로 합치기 (중복 제거)
