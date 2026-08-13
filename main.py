@@ -1,22 +1,31 @@
+"""
+main.py  —  batch/headless entrypoint (no Telegram polling).
+
+For scheduled runs (Task Scheduler, .bat). Refreshes all providers, then
+optionally runs processing. Uses the same ingestion dispatcher as the bot, so
+batch and interactive paths share one code path.
+"""
 import os
 from dotenv import load_dotenv
-from core.excel_updater import run_excel_updaters
+
+from ingestion.registry import refresh_all
 from external_uploader.telegram_uploader import send_telegram_message
 
 load_dotenv()
-BASE_DIR = os.getenv("BASE_DIR")
 
 
 def main():
-    if not BASE_DIR:
-        print("[error!] BASE_DIR was not set")
+    print("[배치] 데이터 provider 일괄 갱신 시작.")
+    results = refresh_all()
+    if not results:
+        print("갱신할 provider 없음.")
         return
 
-    print("[배치 모드] 엑셀 데이터북 일괄 갱신을 시작합니다.")
-    run_excel_updaters(BASE_DIR)
-
-    msg = "*[tasks done]*\nall excel databooks were triggered to execute the designated logic and saved."
-    send_telegram_message(msg)
+    lines = [r.telegram_line() for r in results]
+    ok = sum(1 for r in results if r.ok)
+    summary = f"*[배치 갱신 완료]* {ok}/{len(results)} 성공\n" + "\n".join(lines)
+    print(summary)
+    send_telegram_message(summary)
 
 
 if __name__ == "__main__":

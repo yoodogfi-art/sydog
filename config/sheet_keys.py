@@ -27,9 +27,12 @@ of the sheet name AND prints a warning, so a newly-added sheet is never silently
 lost — you just see the warning and add a proper line here.
 """
 
+# 그냥 시트명으로 저장해도 되는데 텔레그램에서 명령어로 짧게 칠거면 키를 등록하는게 나아서 이렇게 사용. 여기에만 입력하면 됨
 SHEET_TO_KEY = {
     # exact sheet name (from Excel)      : canonical key (file + command)
-    "국고채":                              "kr_govt",
+    "kr_govt_rates_databook":            "kr_govt",
+    "ktb_futues_market": "ktb",
+    "ktb_futures_theoretical": "ktb theo"
     # "USDKRW 최종호가":                    "usdkrw",
     # "USDJPY 최종호가":                    "usdjpy",
     # "US Treasury Curve":                 "us_govt",

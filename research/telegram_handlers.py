@@ -2,117 +2,52 @@
 research/telegram_handlers.py
 
 Wires the query engine into the Telegram bot. Import register_research_handlers
-into bot_trigger.py and call it with your Application instance.
+into bot/app.py and call it with your Application instance.
 
-Commands generated automatically from config.instruments:
-  /kr_govt        -> snapshot
-  /kr_govt_spec   -> prompts for a date range, then prints spec
-  /usdkrw, /usdjpy, /fx (group), plus *_spec variants
+One command per instrument, argument-driven — no two-step prompts, no state:
+  /kr_govt                      -> default snapshot (1d/1w/1mo/1y)
+  /kr_govt 6m                   -> trailing-period change (14, 6m, 2w, 1y)
+  /kr_govt 20260115 20260216    -> date-range change (space form)
+  /kr_govt 20260115-20260216    -> date-range change (dash form)
+  /fx  (group)                  -> same, applied to each member
 
-The _spec two-step: on /<name>_spec we store a pending request keyed by
-chat_id, reply asking for "yyyymmdd-yyyymmdd", and a plain-text message
-handler picks up the next message from that chat and runs the spec.
+Commands are generated automatically from config.instruments (INSTRUMENTS +
+GROUPS). Adding an instrument = one registry line; the handler is generic.
 """
 
 import asyncio
 
 from telegram import Update
-from telegram.ext import (
-    Application,
-    CommandHandler,
-    MessageHandler,
-    ContextTypes,
-    filters,
-)
+from telegram.ext import Application, CommandHandler, ContextTypes
 
 from research import query_engine as qe
 from config.instruments import INSTRUMENTS, GROUPS
 
-# chat_id -> command key awaiting a date range (e.g. "kr_govt")
-_pending_spec: dict[int, str] = {}
-
 
 async def _run(fn, *args):
-    """Run blocking engine calls off the event loop."""
     loop = asyncio.get_running_loop()
     return await loop.run_in_executor(None, fn, *args)
 
 
-# ---------------------------------------------------------------------------
-# Snapshot handler factory
-# ---------------------------------------------------------------------------
-def _make_snapshot_handler(command: str):
+def _make_handler(command: str):
     async def handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         chat_id = update.effective_chat.id
+        args = context.args or []
         try:
             if command in GROUPS:
-                text = await _run(qe.snapshot_group, GROUPS[command], INSTRUMENTS)
+                text = await _run(qe.query_group, GROUPS[command], INSTRUMENTS, args)
             else:
-                text = await _run(qe.snapshot, command, INSTRUMENTS[command])
+                text = await _run(qe.query, command, INSTRUMENTS[command], args)
         except FileNotFoundError:
             text = f"[{command}] processed file not found yet."
+        except ValueError as e:
+            text = str(e)
         except Exception as e:  # noqa: BLE001
             text = f"[{command}] error: {e}"
         await context.bot.send_message(chat_id=chat_id, text=text)
     return handler
 
 
-# ---------------------------------------------------------------------------
-# Spec prompt handler factory
-# ---------------------------------------------------------------------------
-def _make_spec_handler(command: str):
-    async def handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        chat_id = update.effective_chat.id
-        _pending_spec[chat_id] = command
-        await context.bot.send_message(
-            chat_id=chat_id,
-            text='type "yyyymmdd-yyyymmdd".',
-        )
-    return handler
-
-
-# ---------------------------------------------------------------------------
-# Free-text handler: catches the date-range reply after a *_spec command
-# ---------------------------------------------------------------------------
-async def _spec_reply_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_id = update.effective_chat.id
-    command = _pending_spec.get(chat_id)
-    if command is None:
-        return  # not awaiting anything from this chat; ignore silently
-
-    text = (update.message.text or "").strip()
-    try:
-        start, end = qe.parse_spec_range(text)
-    except ValueError as e:
-        await context.bot.send_message(chat_id=chat_id, text=str(e))
-        return  # keep pending so they can retry
-
-    _pending_spec.pop(chat_id, None)
-
-    try:
-        if command in GROUPS:
-            out = await _run(qe.spec_group, GROUPS[command], INSTRUMENTS, start, end)
-        else:
-            out = await _run(qe.spec, command, INSTRUMENTS[command], start, end)
-    except FileNotFoundError:
-        out = f"[{command}] processed file not found yet."
-    except Exception as e:  # noqa: BLE001
-        out = f"[{command}] error: {e}"
-
-    await context.bot.send_message(chat_id=chat_id, text=out)
-
-
-# ---------------------------------------------------------------------------
-# Registration
-# ---------------------------------------------------------------------------
 def register_research_handlers(app: Application):
-    commands = list(INSTRUMENTS.keys()) + list(GROUPS.keys())
-
-    for cmd in commands:
-        app.add_handler(CommandHandler(cmd, _make_snapshot_handler(cmd)))
-        app.add_handler(CommandHandler(f"{cmd}_spec", _make_spec_handler(cmd)))
-
-    # Plain text (non-command) -> possible spec reply. Registered last.
-    app.add_handler(
-        MessageHandler(filters.TEXT & ~filters.COMMAND, _spec_reply_handler)
-    )
+    for cmd in list(INSTRUMENTS.keys()) + list(GROUPS.keys()):
+        app.add_handler(CommandHandler(cmd, _make_handler(cmd)))
