@@ -1,42 +1,33 @@
 """
-Instrument registry for the research query engine.
+config/instruments.py  —  research command registry.
 
-Each command the user can type on Telegram maps to an entry here.
-Adding a new book later = add one dict entry. No engine changes needed.
+With canonical-key naming (config/sheet_keys.py), the processor guarantees each
+dataset is saved as '<key>.csv'. So a research command named after that key needs
+NO 'file' field — the engine defaults the filename to the command name.
 
-style:
-  "rates" -> values are yields in %, changes shown in bp   (e.g. 1d: +10bp)
-  "fx"    -> values are levels,       changes shown in level + %  (e.g. 1d: -10 (-0.04%))
+You only add a 'file' field in the rare case where the command name must differ
+from the filename (e.g. two commands reading one file with different column sets).
 
-file:
-  CSV filename (without extension) inside PROCESSED_DIR.
-
-group:
-  Optional. If present, this command is a *group* that prints several
-  instruments stacked (e.g. "fx" -> usdkrw, usdjpy). group members are
-  command keys that must also exist in INSTRUMENTS.
+Fields (all optional except style):
+  style     required. "rates" | "fx" | "index" (see research/formatters.py)
+  label     bracket header; defaults to the command name
+  file      filename WITHOUT .csv; defaults to the command name (leave out normally)
+  decimals  display precision; per-style default otherwise
+  cols      whitelist of raw column names to show; None = all
+  multi_row override; per-style default otherwise
 """
 
 INSTRUMENTS = {
-    "kr_govt": {
-        "file": "kr_govt",
-        "style": "rates",
-        "label": "kr_govt",
-    },
-    # --- FX examples; wire up once the processed CSVs exist ---
-    "usdkrw": {
-        "file": "usdkrw",
-        "style": "fx",
-        "label": "usdkrw",
-    },
-    "usdjpy": {
-        "file": "usdjpy",
-        "style": "fx",
-        "label": "usdjpy",
-    },
+    # command    : { config }        # reads <command>.csv by convention
+    "kr_govt":  {"style": "rates"},
+    "usdkrw":   {"style": "fx"},
+    "usdjpy":   {"style": "fx"},
+
+    # --- only when command name must differ from filename ---------------
+    # "kr_govt_short": {"style": "rates", "file": "kr_govt",
+    #                   "cols": ["금투협 최종호가 국고채권(1년)_val_1"]},
 }
 
-# Group commands: one command -> several instruments printed together.
 GROUPS = {
     "fx": ["usdkrw", "usdjpy"],
 }

@@ -91,10 +91,7 @@ async def _spec_reply_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     try:
         if command in GROUPS:
-            parts = []
-            for m in GROUPS[command]:
-                parts.append(await _run(qe.spec, m, INSTRUMENTS[m], start, end))
-            out = "\n".join(parts)
+            out = await _run(qe.spec_group, GROUPS[command], INSTRUMENTS, start, end)
         else:
             out = await _run(qe.spec, command, INSTRUMENTS[command], start, end)
     except FileNotFoundError:
