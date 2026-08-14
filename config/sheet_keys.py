@@ -31,8 +31,13 @@ lost — you just see the warning and add a proper line here.
 SHEET_TO_KEY = {
     # exact sheet name (from Excel)      : canonical key (file + command)
     "kr_govt_rates_databook":            "kr_govt",
-    "ktb_futues_market": "ktb",
-    "ktb_futures_theoretical": "ktb theo"
+    "ktb_futues_market":                   "ktb",
+    "ktb_futures_theoretical": "ktb theo",
+    "kr_kofr_databook" : "kofr",
+    "ktb" : "ktb",
+    "ktb theo": "ktb theo",
+    "kr_macro_cpi_databook" : "cpi",
+    "kr_macro_industrial_databook" : "산생"
     # "USDKRW 최종호가":                    "usdkrw",
     # "USDJPY 최종호가":                    "usdjpy",
     # "US Treasury Curve":                 "us_govt",
