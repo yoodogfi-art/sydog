@@ -20,6 +20,7 @@ Fields (all optional except style):
 INSTRUMENTS = {
     # command    : { config }        # reads <command>.csv by convention
     "kr_govt":  {"style": "rates"},
+    "ktb":      {"style": "points"},   # KTB futures price, multi-tenor, points only
     "usdkrw":   {"style": "fx"},
     "usdjpy":   {"style": "fx"},
 

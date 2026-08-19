@@ -21,12 +21,34 @@ from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 
 from research import query_engine as qe
+from research.args import parse_offsets
+from research.plot import plot_curves
 from config.instruments import INSTRUMENTS, GROUPS
 
 
 async def _run(fn, *args):
     loop = asyncio.get_running_loop()
     return await loop.run_in_executor(None, fn, *args)
+
+
+def _make_plot_handler(command: str):
+    async def handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        chat_id = update.effective_chat.id
+        try:
+            offsets = parse_offsets(context.args or [])
+            png, caption = await _run(plot_curves, command, INSTRUMENTS[command], offsets)
+        except FileNotFoundError:
+            await context.bot.send_message(chat_id=chat_id,
+                                           text=f"[{command}] processed file not found yet.")
+            return
+        except ValueError as e:
+            await context.bot.send_message(chat_id=chat_id, text=str(e))
+            return
+        except Exception as e:  # noqa: BLE001
+            await context.bot.send_message(chat_id=chat_id, text=f"[{command}] plot error: {e}")
+            return
+        await context.bot.send_photo(chat_id=chat_id, photo=png, caption=caption)
+    return handler
 
 
 def _make_handler(command: str):
@@ -51,3 +73,6 @@ def _make_handler(command: str):
 def register_research_handlers(app: Application):
     for cmd in list(INSTRUMENTS.keys()) + list(GROUPS.keys()):
         app.add_handler(CommandHandler(cmd, _make_handler(cmd)))
+    # plot commands for multi-tenor instruments (skip groups)
+    for cmd in INSTRUMENTS:
+        app.add_handler(CommandHandler(f"{cmd}_plot", _make_plot_handler(cmd)))

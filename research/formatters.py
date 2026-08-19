@@ -54,6 +54,16 @@ def _index_delta(delta, base, decimals):
     return f"{delta:+.{decimals}f} ({pct:+.2f}%)"
 
 
+# ---- points: level, change in points only (no %) --------------------------
+def _points_value(value, decimals):
+    return f"{value:.{decimals}f}"
+
+def _points_delta(delta, base, decimals):
+    if delta is None:
+        return "n/a"
+    return f"{delta:+.{decimals}f}"
+
+
 # ---------------------------------------------------------------------------
 # Registry: style name -> (value_fn, delta_fn, default_decimals, default_multi_row)
 # ---------------------------------------------------------------------------
@@ -75,6 +85,12 @@ FORMATTERS = {
         "delta": _index_delta,
         "decimals": 2,
         "multi_row": False,
+    },
+    "points": {
+        "value": _points_value,
+        "delta": _points_delta,
+        "decimals": 2,
+        "multi_row": True,
     },
 }
 
