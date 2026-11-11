@@ -26,14 +26,14 @@ def _delta_line(book, tenor, n):
 
 # ---- the three query kinds ----------------------------------------------------
 def snapshot(command: str, instrument: dict) -> str:
-    return render_book(command, instrument, nb.snapshot_numbers, _snapshot_line)
+    return render_book(command, instrument, nb.snapshot_numbers, _snapshot_line, show_asof=True)
 
 
 def period(command: str, instrument: dict, days: int, tag: str) -> str:
     return render_book(
         command, instrument,
         lambda df, col, cols, mode: nb.period_numbers(df, col, cols, mode, days),
-        _delta_line, tag=tag, multi_empty="no data in range",
+        _delta_line, tag=tag, multi_empty="no data in range", show_asof=True,
     )
 
 

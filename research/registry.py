@@ -20,7 +20,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Callable
 
-from research.commands import plot, query, zscore
+from research.commands import forward, plot, query, zscore
 from research.render import resolve_settings
 
 
@@ -41,6 +41,7 @@ class CommandKind:
     applies_to: Callable = field(default=_always)   # (command, instrument) -> bool
     groups: bool = False              # also available on GROUPS (text replies only)
     error_word: str = "error"         # "[cmd] <error_word>: ..." on crashes
+    fixed_name: str | None = None     # exact Telegram name, instead of instrument + suffix
 
 
 COMMAND_KINDS: list[CommandKind] = [
@@ -50,6 +51,9 @@ COMMAND_KINDS: list[CommandKind] = [
                 help="/<instrument>_plot [4 28] - 커브 차트 (기본: 현재/1w/1mo/1y)"),
     CommandKind("_z", zscore.run, groups=True,
                 help="/<instrument>_z [1y | all] - z-score / 백분위"),
+    CommandKind("", forward.run, fixed_name="forward", error_word="forward error",
+                applies_to=lambda command, instrument: command == "kr_govt",
+                help="/forward [20260115] - 국고채 커브 피팅 4종 + 선도금리 표"),
 ]
 
 
@@ -80,7 +84,7 @@ def iter_commands(instruments: dict, groups: dict):
     for kind in COMMAND_KINDS:
         for name, inst in instruments.items():
             if kind.applies_to(name, inst):
-                yield name + kind.suffix, name, kind, ("instrument", inst)
+                yield kind.fixed_name or name + kind.suffix, name, kind, ("instrument", inst)
         if kind.groups:
             for name, members in groups.items():
                 yield name + kind.suffix, name, kind, ("group", members)

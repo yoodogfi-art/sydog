@@ -6,13 +6,12 @@ register_research_handlers(app).
 
 There is nothing feature-specific here: every command comes from
 research/registry.py (COMMAND_KINDS) x config/instruments.py (INSTRUMENTS +
-GROUPS). A reply that is a string is sent as a message; a (png, caption) tuple
-is sent as a photo.
+GROUPS). See _send for the reply shapes a command can return.
 """
 
 import asyncio
 
-from telegram import Update
+from telegram import InputMediaPhoto, Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 
 from config.instruments import INSTRUMENTS, GROUPS
@@ -22,6 +21,22 @@ from research.registry import COMMAND_KINDS, iter_commands, run_group
 async def _run(fn, *args):
     loop = asyncio.get_running_loop()
     return await loop.run_in_executor(None, fn, *args)
+
+
+async def _send(bot, chat_id, reply):
+    """str -> message | (png, caption) -> photo | list of (png, caption) -> album |
+    any other list -> each item sent in order, as separate messages."""
+    if isinstance(reply, str):
+        await bot.send_message(chat_id=chat_id, text=reply)
+    elif isinstance(reply, tuple):
+        png, caption = reply
+        await bot.send_photo(chat_id=chat_id, photo=png, caption=caption)
+    elif all(isinstance(item, tuple) for item in reply):
+        media = [InputMediaPhoto(media=png, caption=caption) for png, caption in reply]
+        await bot.send_media_group(chat_id=chat_id, media=media)
+    else:
+        for item in reply:
+            await _send(bot, chat_id, item)
 
 
 def _make_handler(name, kind, target):
@@ -42,11 +57,7 @@ def _make_handler(name, kind, target):
         except Exception as e:  # noqa: BLE001
             reply = f"[{name}] {kind.error_word}: {e}"
 
-        if isinstance(reply, tuple):
-            png, caption = reply
-            await context.bot.send_photo(chat_id=chat_id, photo=png, caption=caption)
-        else:
-            await context.bot.send_message(chat_id=chat_id, text=reply)
+        await _send(context.bot, chat_id, reply)
 
     return handler
 

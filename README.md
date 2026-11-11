@@ -20,12 +20,14 @@ data_management/
 │   └── loader.py               single load path; market vs macro folders split
 ├── analysis/                   ← NEW: statistics over full series
 │   ├── align.py                as-of joins (daily market ↔ monthly macro)
-│   └── stats.py                z-score, vol, beta, corr, OLS, percentile
+│   ├── stats.py                z-score, vol, beta, corr, OLS, percentile
+│   └── curve_fit.py            KTB curve models (LINEAR/SPLINE/NS/NSS) + forwards
 ├── research/                   ← Telegram research commands
 │   ├── registry.py             ★ list of command kinds ("", "_plot", "_z") — add features here
 │   ├── commands/               one file per command kind
 │   │   ├── query.py            /kr_govt [6m | 20260115 20260216]
 │   │   ├── plot.py             /kr_govt_plot [4 28]
+│   │   ├── forward.py          /forward [20260115]  (4 model charts + forward table)
 │   │   └── zscore.py           /kr_govt_z [1y | all]   ← template for new features
 │   ├── render.py               numbers → text reply (multi-row vs single, one copy)
 │   ├── numbers.py              pure math: current value, deltas

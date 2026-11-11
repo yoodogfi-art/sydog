@@ -57,5 +57,5 @@ def run(command: str, instrument: dict, args: list[str]) -> str:
     return render_book(
         command, instrument,
         lambda df, col, cols, mode: _z_numbers(df, col, days),
-        line, tag=f"z-score {tag}",
+        line, tag=f"z-score {tag}", show_asof=True,
     )

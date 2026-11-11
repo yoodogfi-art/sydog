@@ -28,6 +28,24 @@ async def _run(fn, *a):
     return await loop.run_in_executor(None, fn, *a)
 
 
+async def _process_and_report(bot, chat_id):
+    """Rebuild the CSVs from the raw Excel files and report the result."""
+    if not RAW_DIR.exists():
+        await bot.send_message(chat_id=chat_id, text=f"[에러] raw 경로 없음: {RAW_DIR}")
+        return
+    await bot.send_message(chat_id=chat_id, text="데이터 전처리 시작.")
+    try:
+        processed = await _run(process_excel_data, str(RAW_DIR))
+        if processed:
+            body = "\n".join(f"- {p}" for p in processed)
+            msg = f"[완료] {len(processed)}개 파일 전처리.\n\n{body}"
+        else:
+            msg = "[알림] 처리된 파일 없음."
+        await bot.send_message(chat_id=chat_id, text=msg)
+    except Exception as e:  # noqa: BLE001
+        await bot.send_message(chat_id=chat_id, text=f"[에러]\n{e}")
+
+
 async def update_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     if _busy["task"]:
@@ -40,6 +58,8 @@ async def update_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         lines = [r.telegram_line() for r in results] or ["갱신할 provider 없음."]
         await context.bot.send_message(chat_id=chat_id, text="\n".join(lines),
                                        parse_mode="Markdown")
+        # Commands read the CSVs, so a refresh isn't finished until they're rebuilt.
+        await _process_and_report(context.bot, chat_id)
     finally:
         _busy["task"] = None
 
@@ -57,6 +77,7 @@ async def update_one_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
     else:
         await context.bot.send_message(chat_id=chat_id, text=res.telegram_line(),
                                        parse_mode="Markdown")
+        await _process_and_report(context.bot, chat_id)
 
 
 async def process_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -64,21 +85,9 @@ async def process_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if _busy["task"]:
         await context.bot.send_message(chat_id=chat_id, text=f"이미 작업 중: {_busy['task']}")
         return
-    if not RAW_DIR.exists():
-        await context.bot.send_message(chat_id=chat_id, text=f"[에러] raw 경로 없음: {RAW_DIR}")
-        return
     _busy["task"] = "데이터 전처리"
-    await context.bot.send_message(chat_id=chat_id, text="데이터 전처리 시작.")
     try:
-        processed = await _run(process_excel_data, str(RAW_DIR))
-        if processed:
-            body = "\n".join(f"- {p}" for p in processed)
-            msg = f"[완료] {len(processed)}개 파일 전처리.\n\n{body}"
-        else:
-            msg = "[알림] 처리된 파일 없음."
-        await context.bot.send_message(chat_id=chat_id, text=msg)
-    except Exception as e:
-        await context.bot.send_message(chat_id=chat_id, text=f"[에러]\n{e}")
+        await _process_and_report(context.bot, chat_id)
     finally:
         _busy["task"] = None
 

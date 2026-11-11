@@ -31,9 +31,9 @@ async def ping_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     lines = [
         "명령어:",
-        "/update - 전체 데이터 provider 갱신",
-        "/update_one <name> - 특정 provider 갱신",
-        "/process - 갱신된 엑셀 → CSV 전처리",
+        "/update - 전체 데이터 갱신 + CSV 전처리",
+        "/update_one <name> - 특정 provider 갱신 + CSV 전처리",
+        "/process - CSV 전처리만 실행",
         *research_help_lines(),
         "instruments: " + ", ".join(list(INSTRUMENTS) + list(GROUPS)),
         "/ping - 생존 확인",

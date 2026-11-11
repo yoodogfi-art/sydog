@@ -8,6 +8,8 @@ batch and interactive paths share one code path.
 import os
 from dotenv import load_dotenv
 
+from config.paths import RAW_DIR
+from ingestion.processor import process_excel_data
 from ingestion.registry import refresh_all
 from external_uploader.telegram_uploader import send_telegram_message
 
@@ -23,7 +25,9 @@ def main():
 
     lines = [r.telegram_line() for r in results]
     ok = sum(1 for r in results if r.ok)
-    summary = f"*[배치 갱신 완료]* {ok}/{len(results)} 성공\n" + "\n".join(lines)
+    processed = process_excel_data(str(RAW_DIR))
+    summary = (f"*[배치 갱신 완료]* {ok}/{len(results)} 성공, "
+               f"CSV {len(processed)}개 전처리\n" + "\n".join(lines))
     print(summary)
     send_telegram_message(summary)
 

@@ -17,7 +17,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from research import calendar as cal
-from research.columns import tenor_label, value_columns
+from research.columns import DATE_COL, tenor_label, value_columns
 from research.formatters import get_style
 from storage.loader import load_market
 
@@ -63,10 +63,17 @@ def load_book(command: str, instrument: dict) -> Book:
     return Book(command=command, df=df, cols=value_columns(df, instrument.get("cols")), **s)
 
 
+def _as_of(book: Book) -> str | None:
+    """'as of 2026-11-10': the newest date that has real values."""
+    pos = cal._first_real_pos(book.df, book.cols)
+    return None if pos is None else f"as of {book.df.iloc[pos][DATE_COL]:%Y-%m-%d}"
+
+
 def render_book(command, instrument, numbers_fn, line_fn, tag=None,
-                multi_empty="no data", single_empty="no data") -> str:
+                multi_empty="no data", single_empty="no data", show_asof=False) -> str:
     book = load_book(command, instrument)
-    header = f"[{book.label}]" + (f" {tag}" if tag else "")
+    parts = [f"[{book.label}]", tag, _as_of(book) if show_asof else None]
+    header = " ".join(p for p in parts if p)
 
     if book.multi_row:
         lines = [header]
