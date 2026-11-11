@@ -33,6 +33,46 @@ def _get_excel_app():
     return win32com.client.GetActiveObject("Excel.Application")
 
 
+def _find_open_workbook(file_path: Path):
+    """Return the open Workbook for file_path from ANY running Excel instance.
+
+    Why not GetActiveObject("Excel.Application").Workbooks? When several Excel
+    processes are alive (leftover /automation instances from earlier scripts,
+    xlwings, add-ins), GetActiveObject returns just one of them — often an
+    empty background one — and the databooks look "not open". Every open
+    workbook registers itself in the Windows Running Object Table under its
+    full path, so we search that by file name instead (file name, not full
+    path, so a mapped drive like Z: still matches its \\\\server\\ UNC path).
+    """
+    import pythoncom
+    import win32com.client
+
+    target = file_path.name.lower()
+    rot = pythoncom.GetRunningObjectTable()
+    ctx = pythoncom.CreateBindCtx(0)
+    for moniker in rot:
+        try:
+            name = moniker.GetDisplayName(ctx, None)
+        except Exception:  # noqa: BLE001
+            continue
+        if name.replace("/", "\\").rsplit("\\", 1)[-1].lower() != target:
+            continue
+        try:
+            obj = rot.GetObject(moniker).QueryInterface(pythoncom.IID_IDispatch)
+            return win32com.client.Dispatch(obj)
+        except Exception:  # noqa: BLE001
+            continue
+
+    # fallback: the old way, in case the ROT lookup is unavailable
+    try:
+        for w in _get_excel_app().Workbooks:
+            if w.Name.lower() == target:
+                return w
+    except Exception:  # noqa: BLE001
+        pass
+    return None
+
+
 def _co_init():
     try:
         import pythoncom
@@ -65,28 +105,24 @@ class ExcelAddinUpdater(ProviderUpdater):
         # 2. fixed wait — bounded, predictable for THIS provider
         time.sleep(self.wait_s)
 
-        # 3. grab workbook, verify, save/close
+        # 3. grab workbook (from whichever Excel instance has it), verify, save/close
         try:
-            excel = _get_excel_app()
+            wb = _find_open_workbook(self.file_path)
         except Exception as e:  # noqa: BLE001
             return self._result(False, f"Excel 객체 실패: {e}", started=started)
-
-        target = self.file_path.name
-        wb = None
-        for w in excel.Workbooks:
-            if w.Name.lower() == target.lower():
-                wb = w
-                break
         if wb is None:
             return self._result(False, "열린 워크북에서 파일 못 찾음", started=started)
 
-        today = time.strftime("%Y-%m-%d")
-        val = str(wb.Sheets(self.verify_sheet_index).Range(self.verify_cell).Value)
-        ok = today in val
-        detail = f"{self.verify_cell} {'일치' if ok else '불일치'} ({val})"
+        try:
+            today = time.strftime("%Y-%m-%d")
+            val = str(wb.Sheets(self.verify_sheet_index).Range(self.verify_cell).Value)
+            ok = today in val
+            detail = f"{self.verify_cell} {'일치' if ok else '불일치'} ({val})"
 
-        wb.Save()
-        wb.Close(SaveChanges=True)
+            wb.Save()
+            wb.Close(SaveChanges=True)
+        except Exception as e:  # noqa: BLE001
+            return self._result(False, f"저장 실패: {e}", started=started)
 
         return self._result(ok, detail, verified_date=val, started=started)
 
@@ -116,7 +152,6 @@ class ExcelPollingUpdater(ExcelAddinUpdater):
 
         subprocess.Popen(["start", "", str(self.file_path)], shell=True)
 
-        target = self.file_path.name
         today = time.strftime("%Y-%m-%d")
         deadline = time.time() + self.timeout_s
         last_val = None
@@ -124,9 +159,7 @@ class ExcelPollingUpdater(ExcelAddinUpdater):
         while time.time() < deadline:
             time.sleep(self.poll_s)
             try:
-                excel = _get_excel_app()
-                wb = next((w for w in excel.Workbooks
-                           if w.Name.lower() == target.lower()), None)
+                wb = _find_open_workbook(self.file_path)
                 if wb is None:
                     continue
                 last_val = str(wb.Sheets(self.verify_sheet_index)
