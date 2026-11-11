@@ -21,10 +21,19 @@ data_management/
 ├── analysis/                   ← NEW: statistics over full series
 │   ├── align.py                as-of joins (daily market ↔ monthly macro)
 │   └── stats.py                z-score, vol, beta, corr, OLS, percentile
-├── research/                   ← presentation (mostly unchanged)
-│   ├── query_engine.py         now loads via storage.loader
-│   ├── formatters.py           pluggable display styles
-│   └── telegram_handlers.py    snapshot/spec commands
+├── research/                   ← Telegram research commands
+│   ├── registry.py             ★ list of command kinds ("", "_plot", "_z") — add features here
+│   ├── commands/               one file per command kind
+│   │   ├── query.py            /kr_govt [6m | 20260115 20260216]
+│   │   ├── plot.py             /kr_govt_plot [4 28]
+│   │   └── zscore.py           /kr_govt_z [1y | all]   ← template for new features
+│   ├── render.py               numbers → text reply (multi-row vs single, one copy)
+│   ├── numbers.py              pure math: current value, deltas
+│   ├── columns.py              tenor labels, value columns
+│   ├── calendar.py             which rows are real market days
+│   ├── args.py                 argument parsing (6m, date ranges, offsets)
+│   ├── formatters.py           pluggable display styles (rates/fx/index/points)
+│   └── telegram_handlers.py    generic wiring, generated from registry.py
 ├── bot/                        ← NEW home for the control surface
 │   ├── app.py                  entrypoint (replaces bot_trigger.py)
 │   └── update_handlers.py      /update, /update_one → dispatcher

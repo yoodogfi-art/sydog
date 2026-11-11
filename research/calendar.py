@@ -102,3 +102,5 @@ def asof_index(df, cols, target_date, mode: str = DEFAULT_MODE) -> int | None:
             break  # this row differs from the one below -> it's a real obs
         pos += 1
     return df.index[pos]
+
+# there's something wrong here and idk what it is. what I know is that I wanna poop.

@@ -1,18 +1,13 @@
 """
 research/telegram_handlers.py
 
-Wires the query engine into the Telegram bot. Import register_research_handlers
-into bot/app.py and call it with your Application instance.
+Wires research commands into the Telegram bot. bot/app.py calls
+register_research_handlers(app).
 
-One command per instrument, argument-driven — no two-step prompts, no state:
-  /kr_govt                      -> default snapshot (1d/1w/1mo/1y)
-  /kr_govt 6m                   -> trailing-period change (14, 6m, 2w, 1y)
-  /kr_govt 20260115 20260216    -> date-range change (space form)
-  /kr_govt 20260115-20260216    -> date-range change (dash form)
-  /fx  (group)                  -> same, applied to each member
-
-Commands are generated automatically from config.instruments (INSTRUMENTS +
-GROUPS). Adding an instrument = one registry line; the handler is generic.
+There is nothing feature-specific here: every command comes from
+research/registry.py (COMMAND_KINDS) x config/instruments.py (INSTRUMENTS +
+GROUPS). A reply that is a string is sent as a message; a (png, caption) tuple
+is sent as a photo.
 """
 
 import asyncio
@@ -20,10 +15,8 @@ import asyncio
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 
-from research import query_engine as qe
-from research.args import parse_offsets
-from research.plot import plot_curves
 from config.instruments import INSTRUMENTS, GROUPS
+from research.registry import COMMAND_KINDS, iter_commands, run_group
 
 
 async def _run(fn, *args):
@@ -31,48 +24,38 @@ async def _run(fn, *args):
     return await loop.run_in_executor(None, fn, *args)
 
 
-def _make_plot_handler(command: str):
-    async def handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        chat_id = update.effective_chat.id
-        try:
-            offsets = parse_offsets(context.args or [])
-            png, caption = await _run(plot_curves, command, INSTRUMENTS[command], offsets)
-        except FileNotFoundError:
-            await context.bot.send_message(chat_id=chat_id,
-                                           text=f"[{command}] processed file not found yet.")
-            return
-        except ValueError as e:
-            await context.bot.send_message(chat_id=chat_id, text=str(e))
-            return
-        except Exception as e:  # noqa: BLE001
-            await context.bot.send_message(chat_id=chat_id, text=f"[{command}] plot error: {e}")
-            return
-        await context.bot.send_photo(chat_id=chat_id, photo=png, caption=caption)
-    return handler
+def _make_handler(name, kind, target):
+    target_type, payload = target
 
-
-def _make_handler(command: str):
     async def handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         chat_id = update.effective_chat.id
         args = context.args or []
         try:
-            if command in GROUPS:
-                text = await _run(qe.query_group, GROUPS[command], INSTRUMENTS, args)
+            if target_type == "group":
+                reply = await _run(run_group, kind, payload, INSTRUMENTS, args)
             else:
-                text = await _run(qe.query, command, INSTRUMENTS[command], args)
+                reply = await _run(kind.run, name, payload, args)
         except FileNotFoundError:
-            text = f"[{command}] processed file not found yet."
+            reply = f"[{name}] processed file not found yet."
         except ValueError as e:
-            text = str(e)
+            reply = str(e)
         except Exception as e:  # noqa: BLE001
-            text = f"[{command}] error: {e}"
-        await context.bot.send_message(chat_id=chat_id, text=text)
+            reply = f"[{name}] {kind.error_word}: {e}"
+
+        if isinstance(reply, tuple):
+            png, caption = reply
+            await context.bot.send_photo(chat_id=chat_id, photo=png, caption=caption)
+        else:
+            await context.bot.send_message(chat_id=chat_id, text=reply)
+
     return handler
 
 
 def register_research_handlers(app: Application):
-    for cmd in list(INSTRUMENTS.keys()) + list(GROUPS.keys()):
-        app.add_handler(CommandHandler(cmd, _make_handler(cmd)))
-    # plot commands for multi-tenor instruments (skip groups)
-    for cmd in INSTRUMENTS:
-        app.add_handler(CommandHandler(f"{cmd}_plot", _make_plot_handler(cmd)))
+    for tg_cmd, name, kind, target in iter_commands(INSTRUMENTS, GROUPS):
+        app.add_handler(CommandHandler(tg_cmd, _make_handler(name, kind, target)))
+
+
+def research_help_lines() -> list[str]:
+    """One /help line per command kind (used by bot/app.py)."""
+    return [k.help for k in COMMAND_KINDS]

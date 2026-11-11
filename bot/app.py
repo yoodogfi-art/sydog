@@ -7,6 +7,8 @@ data formats, or statistics — it only wires feature modules to Telegram. Addin
 a feature = import its register_* function and call it here.
 """
 
+# use app.py to activate the telegram bot (sydog)
+
 import os
 import asyncio
 from dotenv import load_dotenv
@@ -14,7 +16,8 @@ from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
 from bot.update_handlers import register_update_handlers
-from research.telegram_handlers import register_research_handlers
+from research.telegram_handlers import register_research_handlers, research_help_lines
+from config.instruments import INSTRUMENTS, GROUPS
 
 load_dotenv()
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
@@ -26,16 +29,17 @@ async def ping_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = (
-        "명령어:\n"
-        "/update - 전체 데이터 provider 갱신\n"
-        "/update_one <name> - 특정 provider 갱신\n"
-        "/process - 갱신된 엑셀 → CSV 전처리\n"
-        "/<instrument> - 스냅샷 (예: /kr_govt, /usdkrw, /fx)\n"
-        "/<instrument>_spec - 기간 지정 조회\n"
-        "/ping - 생존 확인\n"
-        "/help - 도움말"
-    )
+    lines = [
+        "명령어:",
+        "/update - 전체 데이터 provider 갱신",
+        "/update_one <name> - 특정 provider 갱신",
+        "/process - 갱신된 엑셀 → CSV 전처리",
+        *research_help_lines(),
+        "instruments: " + ", ".join(list(INSTRUMENTS) + list(GROUPS)),
+        "/ping - 생존 확인",
+        "/help - 도움말",
+    ]
+    text = "\n".join(lines)
     await context.bot.send_message(chat_id=update.effective_chat.id, text=text)
 
 

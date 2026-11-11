@@ -1,5 +1,5 @@
 """
-research/plot.py
+research/commands/plot.py  —  /<instrument>_plot [offsets...]
 
 Yield-curve plotting -> PNG bytes for Telegram.
 
@@ -21,30 +21,24 @@ Requires the instrument to be multi-tenor (rates/points style with (N년) cols).
 from __future__ import annotations
 
 import io
-import re
 from datetime import timedelta
 
 import matplotlib
 matplotlib.use("Agg")  # headless, no display
 import matplotlib.pyplot as plt
 
-from storage.loader import load_market, value_columns, DATE_COL
+from storage.loader import load_market
 from research import calendar as cal
-
-_TENOR_RE = re.compile(r"(\d+)\s*년")
+from research.args import parse_offsets
+from research.columns import DATE_COL, value_columns, tenor_num as _tenor_num
+from research.columns import tenor_label
 
 # green fade: index 0 = newest (deepest), later = milder/lighter
 _GREEN_FADE = ["#0B6E4F", "#2E9E6B", "#66C08A", "#A9D9B8", "#CDE8D5"]
 
 
-def _tenor_num(col: str) -> int:
-    m = _TENOR_RE.search(col)
-    return int(m.group(1)) if m else 0
-
-
 def _tenor_label(col: str) -> str:
-    m = _TENOR_RE.search(col)
-    return f"{m.group(1)}Y" if m else col
+    return tenor_label(col, strip_suffix=False)
 
 
 def _anchor_pos(df, cols, mode):
@@ -142,3 +136,7 @@ def plot_curves(command: str, instrument: dict, offsets: list[int]) -> tuple[byt
     else:
         cap = f"[{label}] current / 1w / 1mo / 1y"
     return buf.getvalue(), cap
+
+
+def run(command: str, instrument: dict, args: list[str]) -> tuple[bytes, str]:
+    return plot_curves(command, instrument, parse_offsets(args))
