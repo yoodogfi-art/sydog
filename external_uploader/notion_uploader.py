@@ -1,11 +1,9 @@
-import os
-from dotenv import load_dotenv
 from notion_client import Client
 
-load_dotenv()
+from config.env import get
 
-notion_token = os.getenv("NOTION_API_KEY")
-database_id = os.getenv("NOTION_DATABASE_ID")
+notion_token = get("NOTION_API_KEY")
+database_id = get("NOTION_DATABASE_ID")
 
 notion = Client(auth=notion_token) if notion_token else None
 

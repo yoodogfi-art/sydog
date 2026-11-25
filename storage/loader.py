@@ -18,13 +18,16 @@ monthly macro) is the caller's job via as-of joins (see analysis/align.py).
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 import pandas as pd
 
-MARKET_DIR = Path(os.getenv("PROCESSED_DIR", r"C:\Users\User\databook_processed"))
-MACRO_DIR = Path(os.getenv("MACRO_DIR", r"C:\Users\User\databook_macro"))
+from config.paths import MACRO_DIR, PROCESSED_DIR  # noqa: F401  (MACRO_DIR re-exported)
+
+# ingestion/processor.py writes to PROCESSED_DIR; we read the same object, so the
+# write path and the read path cannot drift. Aliased because callers here speak
+# in data categories, not folder names.
+MARKET_DIR = PROCESSED_DIR
 
 DATE_COL = "일자"
 _ENCODINGS = ("utf-8-sig", "cp949", "euc-kr", "utf-8", "cp1252")
@@ -75,7 +78,20 @@ def series(df: pd.DataFrame, col: str) -> pd.Series:
 
 
 def value_columns(df: pd.DataFrame, whitelist=None) -> list[str]:
+    """Value columns of a book, in whitelist order.
+
+    A whitelist entry is an exact column name, or — when it matches none — a
+    substring selecting every column that contains it. The substring form exists
+    because upstream bakes the live contract into the header
+    ('미국달러 SP 2608-2609_val_1'): that code rolls, so a whitelist of exact
+    names would break silently on the next roll. '미국달러' keeps working.
+    """
     cols = [c for c in df.columns if c != DATE_COL]
-    if whitelist:
-        return [c for c in whitelist if c in cols]
-    return cols
+    if not whitelist:
+        return cols
+
+    out: list[str] = []
+    for want in whitelist:
+        hits = [want] if want in cols else [c for c in cols if want in c]
+        out += [c for c in hits if c not in out]
+    return out

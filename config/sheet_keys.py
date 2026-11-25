@@ -32,16 +32,28 @@ SHEET_TO_KEY = {
     # exact sheet name (from Excel)      : canonical key (file + command)
     "kr_govt_rates_databook":            "kr_govt",
     "ktb_futues_market":                   "ktb",
-    "ktb_futures_theoretical": "ktb theo",
+    "ktb_futures_theoretical": "ktb_theo",
     "kr_kofr_databook" : "kofr",
     "ktb" : "ktb",
-    "ktb theo": "ktb theo",
+    "ktb theo": "ktb_theo",
     "kr_macro_cpi_databook" : "cpi",
-    "kr_macro_industrial_databook" : "산생"
-    # "USDKRW 최종호가":                    "usdkrw",
-    # "USDJPY 최종호가":                    "usdjpy",
-    # "US Treasury Curve":                 "us_govt",
-    # "JGB Yields":                        "jp_govt",
+    "kr_macro_industrial_databook" : "ind_prod",
+
+    # futures books: one sheet holds several series side by side, so the key is
+    # the BOOK and config/instruments.py slices it into one command per series.
+    "world_fx_spreads_1m":               "fx_fut",        # KRX 통화선물 SP (not spot FX)
+    "kr_equity_market_futures":          "kr_equity_fut",
+    "gold_futures":                      "gold",
+
+    # rate curves
+    "us_govt_rates_databook":            "us_govt",       # UST 1M..30Y
+
+    # credit: one sheet per issuer TYPE, columns are issuer x tenor
+    "kr_capital_type1":                  "kr_capital",    # 11 캐피탈 x 4 tenors
+    "kr_card_type2":                     "kr_card",       # 6 카드 x 8 tenors
+
+    # equity: KOSPI + 28 sector indices
+    "Sheet1":                            "kospi",
 }
 
 

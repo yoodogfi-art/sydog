@@ -1,7 +1,20 @@
-pywin32>=306
+# --- core data stack ---
 pandas>=2.0.0
-python-dotenv>=1.0.0
+numpy>=1.24
 scipy>=1.11
+openpyxl>=3.1            # pandas read_excel engine for .xlsx/.xlsm
 python-dateutil>=2.8
+python-dotenv>=1.0.0
+
+# --- ingestion (Excel add-in refresh, Windows only) ---
+pywin32>=306
+
+# --- control surface + charts ---
+python-telegram-bot>=21.0
+matplotlib>=3.7
+
+# --- outbound notify ---
+requests>=2.31
+notion-client>=2.2       # optional: external_uploader/notion_uploader.py
 
 # pip install -r requirements.txt

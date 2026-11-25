@@ -20,21 +20,18 @@ Requires the instrument to be multi-tenor (rates/points style with (N년) cols).
 
 from __future__ import annotations
 
-import io
 from datetime import timedelta
 
-import matplotlib
-matplotlib.use("Agg")  # headless, no display
-import matplotlib.pyplot as plt
-
+from research import style as sty
 from storage.loader import load_market
 from research import calendar as cal
 from research.args import parse_offsets
-from research.columns import DATE_COL, value_columns, tenor_num as _tenor_num
+from research.columns import DATE_COL, value_columns, tenor_sort_key as _tenor_num
 from research.columns import tenor_label
 
-# green fade: index 0 = newest (deepest), later = milder/lighter
-_GREEN_FADE = ["#0B6E4F", "#2E9E6B", "#66C08A", "#A9D9B8", "#CDE8D5"]
+# Palette, Korean font and axis furniture come from research/style.py, so this
+# chart and the time-series chart look like one product.
+_GREEN_FADE = sty.GREEN_FADE
 
 
 def _tenor_label(col: str) -> str:
@@ -104,7 +101,7 @@ def plot_curves(command: str, instrument: dict, offsets: list[int]) -> tuple[byt
         raise ValueError(f"[{label}] no rows for requested offsets")
 
     # Draw
-    fig, ax = plt.subplots(figsize=(8, 5), dpi=130)
+    fig, ax = sty.new_fig(figsize=(8, 5))
     xticklabels = None
     for i, (pos, name) in enumerate(series):
         tenors, vals, labels, date_str = _curve_at_pos(df, cols, pos)
@@ -118,24 +115,15 @@ def plot_curves(command: str, instrument: dict, offsets: list[int]) -> tuple[byt
     if xticklabels:
         ax.set_xticks(range(len(xticklabels)))
         ax.set_xticklabels(xticklabels)
-    ax.set_ylabel("yield (%)")
-    ax.set_title(f"{label} yield curve")
-    ax.grid(True, alpha=0.25)
-    ax.legend(frameon=False)
-    ax.yaxis.set_major_formatter(
-        plt.FuncFormatter(lambda v, _: f"{v:.{decimals}f}"))
-    fig.tight_layout()
-
-    buf = io.BytesIO()
-    fig.savefig(buf, format="png")
-    plt.close(fig)
-    buf.seek(0)
+    unit = "%" if instrument.get("style") == "rates" else ""
+    sty.apply_axes(ax, title=f"{label} curve", ylabel=unit, decimals=decimals)
+    png = sty.to_png(fig)
 
     if offsets:
         cap = f"[{label}] " + ", ".join(n for _, n in series)
     else:
         cap = f"[{label}] current / 1w / 1mo / 1y"
-    return buf.getvalue(), cap
+    return png, cap
 
 
 def run(command: str, instrument: dict, args: list[str]) -> tuple[bytes, str]:

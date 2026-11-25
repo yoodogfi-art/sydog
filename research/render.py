@@ -17,7 +17,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from research import calendar as cal
-from research.columns import DATE_COL, tenor_label, value_columns
+from research.columns import DATE_COL, column_label, value_columns
 from research.formatters import get_style
 from storage.loader import load_market
 
@@ -33,6 +33,10 @@ class Book:
     mode: str          # calendar date_mode
     df: object         # pandas DataFrame, newest row first
     cols: list
+    labels: dict       # column -> display name (see research/columns.column_label)
+
+    def label_for(self, col: str) -> str:
+        return column_label(col, self.labels)
 
     def value(self, v) -> str:
         return self.fmt["value"](v, self.decimals)
@@ -54,6 +58,7 @@ def resolve_settings(command: str, instrument: dict) -> dict:
         "multi_row": instrument.get("multi_row", fmt["multi_row"]),
         "label": instrument.get("label", command),
         "mode": instrument.get("date_mode", cal.DEFAULT_MODE),
+        "labels": instrument.get("labels") or {},
     }
 
 
@@ -81,7 +86,7 @@ def render_book(command, instrument, numbers_fn, line_fn, tag=None,
             nums = numbers_fn(book.df, col, book.cols, book.mode)
             if nums is None:
                 continue
-            lines.append(line_fn(book, tenor_label(col), nums))
+            lines.append(line_fn(book, book.label_for(col), nums))
         if len(lines) == 1:
             lines.append(multi_empty)
         return "\n".join(lines)

@@ -6,20 +6,17 @@ Telegram handlers for data-refresh commands. These call the ingestion dispatcher
 provider changes ingestion/registry.py only — these handlers are untouched.
 """
 
-import os
 import asyncio
 
-from dotenv import load_dotenv
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 
 from ingestion.registry import refresh_all, refresh_one
 from ingestion.processor import process_excel_data
-from config.paths import RAW_DIR
+from config.paths import RAW_DIR   # importing this loads .env
 
-# ensure .env is loaded even if this module is imported before app.py runs it
-load_dotenv()
-
+# One refresh at a time: the Excel add-in drives a real Excel instance, so two
+# overlapping passes fight over the same workbooks.
 _busy = {"task": None}
 
 
@@ -29,19 +26,22 @@ async def _run(fn, *a):
 
 
 async def _process_and_report(bot, chat_id):
-    """Rebuild the CSVs from the raw Excel files and report the result."""
+    """Rebuild the CSVs from the raw Excel files and report the result.
+
+    The report carries the processor's warnings too — an unmapped sheet writes to
+    the wrong CSV name, so it has to reach the user, not stdout.
+    """
     if not RAW_DIR.exists():
         await bot.send_message(chat_id=chat_id, text=f"[에러] raw 경로 없음: {RAW_DIR}")
         return
     await bot.send_message(chat_id=chat_id, text="데이터 전처리 시작.")
     try:
-        processed = await _run(process_excel_data, str(RAW_DIR))
-        if processed:
-            body = "\n".join(f"- {p}" for p in processed)
-            msg = f"[완료] {len(processed)}개 파일 전처리.\n\n{body}"
-        else:
-            msg = "[알림] 처리된 파일 없음."
-        await bot.send_message(chat_id=chat_id, text=msg)
+        processed = await _run(process_excel_data, RAW_DIR)
+        head = (f"[완료] {len(processed)}개 파일 전처리." if processed
+                else "[알림] 처리된 파일 없음.")
+        body = "\n".join(processed.telegram_lines())
+        await bot.send_message(chat_id=chat_id,
+                               text=f"{head}\n\n{body}" if body else head)
     except Exception as e:  # noqa: BLE001
         await bot.send_message(chat_id=chat_id, text=f"[에러]\n{e}")
 
@@ -69,15 +69,23 @@ async def update_one_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
     if not context.args:
         await context.bot.send_message(chat_id=chat_id, text="사용법: /update_one <provider_name>")
         return
+    if _busy["task"]:
+        await context.bot.send_message(chat_id=chat_id, text=f"이미 작업 중: {_busy['task']}")
+        return
+
     name = context.args[0]
-    await context.bot.send_message(chat_id=chat_id, text=f"{name} 갱신 시작.")
-    res = await _run(refresh_one, name)
-    if res is None:
-        await context.bot.send_message(chat_id=chat_id, text=f"provider '{name}' 없음.")
-    else:
+    _busy["task"] = f"{name} 갱신"
+    try:
+        await context.bot.send_message(chat_id=chat_id, text=f"{name} 갱신 시작.")
+        res = await _run(refresh_one, name)
+        if res is None:
+            await context.bot.send_message(chat_id=chat_id, text=f"provider '{name}' 없음.")
+            return
         await context.bot.send_message(chat_id=chat_id, text=res.telegram_line(),
                                        parse_mode="Markdown")
         await _process_and_report(context.bot, chat_id)
+    finally:
+        _busy["task"] = None
 
 
 async def process_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
